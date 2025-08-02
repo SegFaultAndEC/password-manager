@@ -559,7 +559,7 @@ class GetKeyWindow(QDialog):
     def __init__(self, mainWindow):
         super(GetKeyWindow, self).__init__()
         self.mainWindow = mainWindow
-        self.setWindowTitle("登陆")
+        self.setWindowTitle("登录")
         self.resize(400, 0)
         self.keyEditLine = QLineEdit()
         self.button = QPushButton("确认")
