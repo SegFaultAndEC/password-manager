@@ -1,11 +1,11 @@
-from PySide6.QtGui import QAction, QIcon
-
+from PySide6.QtGui import QAction, QIcon, QDesktopServices
 from ui_data import UIData, initKey, hasFile, loadFile, getPassword, clearBackup
 from generate_password import generatePassword
 from PySide6.QtWidgets import *
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
 import pyperclip
 import hashlib
+import os
 
 
 class VLine(QFrame):
@@ -36,6 +36,43 @@ class HLine(QFrame):
                 padding: 0px;
             }
         """)
+
+
+class RandomPasswordArea(QWidget):
+    def __init__(self, passwordLineEdit: QLineEdit):
+        super(RandomPasswordArea, self).__init__()
+        self.passwordLineEdit = passwordLineEdit
+        self.passwordCount = QLineEdit("14")
+        self.hasSpecialChar = QCheckBox("特殊字符")
+        self.randomButton = QPushButton("随机密码")
+        self.draw()
+        self.register()
+
+    def draw(self):
+        self.hasSpecialChar.setChecked(True)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("密码位数:"))
+        layout.addWidget(self.passwordCount)
+        layout.addWidget(self.hasSpecialChar)
+        layout.addWidget(self.randomButton)
+
+    def register(self):
+        self.randomButton.clicked.connect(self.randomPassword)
+
+    def randomPassword(self):
+        password = ""
+        if self.passwordCount.text() == "":
+            password = generatePassword(14, self.hasSpecialChar.isChecked())
+        else:
+            count = 14
+            try:
+                count = int(self.passwordCount.text())
+            except ValueError:
+                pass
+            password = generatePassword(count, self.hasSpecialChar.isChecked())
+        self.passwordLineEdit.setText(password)
+        pyperclip.copy(password)
+        QMessageBox.information(self, "提示", "已复制到剪贴板")
 
 
 class CheckKeyWindow(QDialog):
@@ -257,6 +294,7 @@ class ChangeAccountWindow(QDialog):
         self.resize(800, 0)
         self.nameEditLine = QLineEdit()
         self.passwordEditLine = QLineEdit()
+        self.randomPasswordArea = RandomPasswordArea(self.passwordEditLine)
         self.changeBtn = QPushButton("修改")
         self.register()
         self.draw()
@@ -274,11 +312,21 @@ class ChangeAccountWindow(QDialog):
         passwordEditLineLayout.addWidget(QLabel("密码:"))
         passwordEditLineLayout.addWidget(self.passwordEditLine)
 
+        inputAreaWidget = QWidget()
+        inputAreaLayout = QVBoxLayout(inputAreaWidget)
+        inputAreaLayout.addWidget(nameEditLineWidget)
+        inputAreaLayout.addWidget(passwordEditLineWidget)
+
+        editAreaWidget = QWidget()
+        editAreaLayout = QHBoxLayout(editAreaWidget)
+        editAreaLayout.addWidget(inputAreaWidget, 1)
+        editAreaLayout.addWidget(VLine())
+        editAreaLayout.addWidget(self.randomPasswordArea)
+
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignTop)
         layout.addWidget(QLabel("输入为空则保留原数据"))
-        layout.addWidget(nameEditLineWidget)
-        layout.addWidget(passwordEditLineWidget)
+        layout.addWidget(editAreaWidget)
         layout.addWidget(HLine())
         layout.addWidget(self.changeBtn)
 
@@ -366,10 +414,7 @@ class AddAccountWindow(QWidget):
         self.resize(800, 0)
         self.nameEditLine = QLineEdit()
         self.passwordEditLine = QLineEdit()
-        self.passwordCount = QLineEdit("14")
-        self.hasSpecialChar = QCheckBox("特殊字符")
-        self.hasSpecialChar.setChecked(True)
-        self.randomButton = QPushButton("随机密码")
+        self.randomPasswordArea = RandomPasswordArea(self.passwordEditLine)
         self.addButton = QPushButton("添加")
         self.register()
         self.draw()
@@ -392,38 +437,16 @@ class AddAccountWindow(QWidget):
         editLineLayout.addWidget(nameEditLineWidget)
         editLineLayout.addWidget(passwordEditLineWidget)
 
-        randomAreaWidget = QWidget()
-        randomAreaLayout = QVBoxLayout(randomAreaWidget)
-        randomAreaLayout.addWidget(QLabel("密码位数:"))
-        randomAreaLayout.addWidget(self.passwordCount)
-        randomAreaLayout.addWidget(self.hasSpecialChar)
-        randomAreaLayout.addWidget(self.randomButton)
-
         editAreaWidget = QWidget()
         editAreaLayout = QHBoxLayout(editAreaWidget)
         editAreaLayout.addWidget(editLineWidget, 1)
         editAreaLayout.addWidget(VLine())
-        editAreaLayout.addWidget(randomAreaWidget)
+        editAreaLayout.addWidget(self.randomPasswordArea)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignTop)
         layout.addWidget(editAreaWidget)
         layout.addWidget(self.addButton)
-
-    def randomPassword(self):
-        password = ""
-        if self.passwordCount.text() == "":
-            password = generatePassword(14, self.hasSpecialChar.isChecked())
-        else:
-            count = 14
-            try:
-                count = int(self.passwordCount.text())
-            except ValueError:
-                pass
-            password = generatePassword(count, self.hasSpecialChar.isChecked())
-        self.passwordEditLine.setText(password)
-        pyperclip.copy(password)
-        QMessageBox.information(self, "提示", "已复制到剪贴板")
 
     def addAccount(self):
         if self.nameEditLine.text() == "":
@@ -442,7 +465,6 @@ class AddAccountWindow(QWidget):
             self.accountMenu.window().update()
 
     def register(self):
-        self.randomButton.clicked.connect(self.randomPassword)
         self.addButton.clicked.connect(self.addAccount)
 
 
@@ -683,6 +705,11 @@ class MainWindow(QMainWindow):
     # 创建菜单栏
     def createMenu(self):
         menuBar = self.menuBar()
+        fileMenu = menuBar.addMenu("文件")
+        openFileDirAction = QAction(QIcon(), '打开文件目录', self)
+        openFileDirAction.triggered.connect(self.openFileDir)
+        fileMenu.addAction(openFileDirAction)
+
         settingsMenu = menuBar.addMenu('设置')
 
         changeKeyAction = QAction(QIcon(), '修改密钥', self)
@@ -707,6 +734,10 @@ class MainWindow(QMainWindow):
             return
         clearBackup()
         QMessageBox.information(self, "提示", "已成功清除备份")
+
+    def openFileDir(self):
+        dirPath = os.path.expanduser('~/password_manager')
+        QDesktopServices.openUrl(QUrl.fromLocalFile(dirPath))
 
     def draw(self):
         # 图形
